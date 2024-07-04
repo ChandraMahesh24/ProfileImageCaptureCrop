@@ -3,8 +3,8 @@ capturing an image from the camera or picking one from the gallery and then crop
 
 
 Permissions
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.CAMERA" />
+      #  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+      # <uses-permission android:name="android.permission.CAMERA" />
 
 FileProvider Setup: To use FileProvider, configure it in your AndroidManifest.xml:
     <provider
