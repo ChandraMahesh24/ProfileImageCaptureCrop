@@ -1,0 +1,133 @@
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Log;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
+import com.yalantis.ucrop.UCrop;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Objects;
+
+public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+    private Uri fileUri;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Trigger openCamera or openMediaContent as needed
+        openCamera();  // Call this to open the camera
+        // openMediaContent(); // Call this to open gallery
+    }
+
+    // Launch camera to take a picture
+    public void openCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (Exception ex) {
+                Log.e(TAG, "openCamera: " + ex.getLocalizedMessage());
+            }
+            if (photoFile != null) {
+                fileUri = FileProvider.getUriForFile(this,
+                        "com.example.Healthcare.fileprovider",
+                        photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+                CameraLauncher.launch(takePictureIntent);
+            }
+        }
+    }
+
+    // Handle camera result and start UCrop
+    private final ActivityResultLauncher<Intent> CameraLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Uri outputUri = Uri.fromFile(new File(getFilesDir(), "cropped.jpg"));
+
+                        UCrop.Options options = new UCrop.Options();
+                        options.setCircleDimmedLayer(true);
+                        options.setActiveControlsWidgetColor(getColor(R.color.app_color_blue));
+
+                        UCrop.of(fileUri, outputUri)
+                                .withAspectRatio(1f, 1f)
+                                .withOptions(options)
+                                .withMaxResultSize(2000, 2000)
+                                .start(MainActivity.this);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+    // Launch gallery to pick an image
+    public void openMediaContent() {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            openIntentChooser();
+        } else {
+            if (Utilss.checkPermissionForAML(this)) {
+                openIntentChooser();
+            } else {
+                Log.i(TAG, "else chooseFile");
+                Utilss.requestPermissionForAML(this);
+            }
+        }
+    }
+
+    // Handle gallery result and start UCrop
+    private final ActivityResultLauncher<Intent> GalleryLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    Intent data = result.getData();
+                    try {
+                        Uri uri = data != null ? data.getData() : null;
+                        Uri outputUri = Uri.fromFile(new File(getFilesDir(), "cropped.jpg"));
+
+                        UCrop.Options options = new UCrop.Options();
+                        options.setCircleDimmedLayer(true);
+                        options.setActiveControlsWidgetColor(getColor(R.color.app_color_blue));
+
+                        UCrop.of(Objects.requireNonNull(uri), outputUri)
+                                .withAspectRatio(1f, 1f)
+                                .withOptions(options)
+                                .withMaxResultSize(2000, 2000)
+                                .start(MainActivity.this);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+    // Create file for the image
+    private File createImageFile() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        return File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+    }
+
+    // Open intent chooser for selecting images from gallery
+    private void openIntentChooser() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        GalleryLauncher.launch(intent);
+    }
+}
